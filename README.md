@@ -178,7 +178,7 @@ SELECT
   		ELSE 'Unknown'
 	END AS size,
 
-	-- Replace 'unlisted' or NULL price with 0, cast to numeric, round 2 decimals
+	-- Replace 'unlisted' or NULL price with 0, cast to numeric, round to 2 decimals
 	ROUND(COALESCE(NULLIF(price, 'unlisted') :: NUMERIC, 0), 2) AS price,
 
 	-- Replace NULL sales with median sales from CTE, round 2 decimals 
@@ -193,48 +193,76 @@ SELECT
 FROM pet_supplies
 WHERE repeat_purchase IN (0, 1);
 ```
+I cleaned the dataset by standardizing categorical fields like category and size, replacing missing or invalid entries with 'Unknown' to keep all products in the analysis. For numeric fields like price and sales, I converted values to consistent numeric types, rounded appropriately, and used the median to impute missing sales, avoiding distortion from extreme values. I also ensured all columns had the correct data types and included only relevant rows with valid repeat_purchase. These steps produced a consistent and reliable dataset, ready for meaningful analysis and insights.
 
+### 12. Compare sales by animal and repeat_purchase (avg, min, max)
+
+```sql
+-- animal_sales
+
+SELECT
+	animal,
+	repeat_purchase,
+	ROUND(AVG(sales) :: NUMERIC) AS avg_sales,
+	ROUND(MIN(sales) :: NUMERIC) AS min_sales,
+	ROUND(MAX(sales) :: NUMERIC) AS max_sales
+	
+FROM pet_supplies
+GROUP BY animal, repeat_purchase
+ORDER BY animal, repeat_purchase;
+```
+I ran the query by grouping the data by animal and repeat_purchase to directly compare sales between repeat buyers and one-time buyers for each type of pet. This approach helped me answer the key question of whether products bought repeatedly generate higher sales, as it allowed me to examine the average sales within each group. Including the minimum and maximum sales provided additional context on the spread of sales, showing whether the average was influenced by a few top-selling products or if there were low-performing items that might need attention. Rounding the results to whole numbers made the output easier to interpret for stakeholders.
+
+### 13. Extract repeat-purchased products for cats and dogs
+
+```sql
+-- popular_pet_products
+
+SELECT
+	product_id,
+	sales,
+	rating
+	
+FROM pet_supplies
+WHERE (animal = 'Cat' OR animal = 'Dog')
+	AND repeat_purchase = 1;
+```
+I applied a filter to focus on **cats and dogs** and only on products that were **bought repeatedly**, because management wanted to prioritize these for promotions, bundling, or stock planning next year. By selecting `product_id`, `sales`, and `rating`, I captured the essential information needed to **identify top revenue drivers** and **highly-rated repeat products**, which can directly inform merchandising and marketing strategies. Using the original table provided, the raw product list, giving a baseline view, while applying the same filter on the cleaned dataset ensures consistency and corrects any issues caused by unlisted prices or inconsistent categories. This step produced a **direct action list** of 552 products, making it easy to focus efforts on the most valuable items.
 
 <br>
 <br>
 
+## INSIGHTS AND FINDINGS ~
 
-
-
-<br>
-<br>
-
-
-
-
-<br>
-<br>
-
-
-
+* The raw data contained multiple quality issues that would bias results if left unaddressed: '-' values in category, many capitalization variants in size, 'unlisted' in price, and NULL rating values. Cleaning these was essential to produce reliable group comparisons.
+* By producing a cleaned SELECT (Task 1), I retained 1,500 usable rows and avoided dropping records, which keeps revenue totals and product counts accurate.
+* Imputing missing sales with the median preserved central tendency without letting extreme top sellers distort aggregates — this made average comparisons between repeat and non-repeat groups more robust.
+* Replacing 'unlisted' price with 0 keeps rows but reduces average price metrics; this is an explicit business decision that affects interpretation. I flagged it for follow-up.
+* Marking missing ratings as 0 flags unrated products; I treat these zeros as “unknown” during interpretation, so I do not misclassify products as low-rated when ratings are simply absent.
+* The animal × repeat_purchase aggregation yields a compact, interpretable comparison (8 rows) that directly answers whether repeat buyers correspond to higher average sales by animal.
+* The Cat/Dog repeat-product extract yields 552 products to use for targeted promotions, retention campaigns, or deeper profitability analysis.
 
 <br>
 <br>
 
+## RECOMMENDATIONS
 
-
+* Rank the 552 repeat products by sales and rating to create top-20 lists for marketing campaigns and stock prioritization.
+* Replacing 'unlisted' with 0 preserves rows but can bias averages; either source the true prices from the ingestion system or impute prices based on the median within each category and size to reduce distortions.
+* Treat 0 as a missing flag and exclude these from mean rating calculations, while reporting the count of unrated products so product teams can collect feedback.
+* Create a documented, repeatable cleaning layer (SQL view or ETL step) to ensure that dashboards and reports consistently use the same logic.
+* Conduct analyses such as (1) top-20 repeat products by sales and rating for cats and dogs, (2) animal × repeat_purchase aggregations on the cleaned view to compare with raw results, and (3) revenue-ranked cohorts or RFM analysis for repeat buyers to measure lifetime value potential.
 
 <br>
 <br>
 
+## FINAL NOTES
+
+This project demonstrated how SQL can transform raw, inconsistent pet product data into actionable business insights. By systematically cleaning and standardizing the dataset, PetMind can make informed decisions on promotions, inventory prioritization, and stock allocation. These insights enable the company to focus on repeat-purchase products, meet customer demand effectively, optimize revenue, and ensure profitability. Future extensions could include predictive sales modeling, repeat-customer lifetime value analysis, or seasonal demand forecasting to further refine marketing, inventory, and promotional strategies.
 
 
-
-
-
-
-
-
-
-
-
-
-
+<br>
+<br>
 
 
 
